@@ -1,4 +1,4 @@
-//! Mono WAV output, as `tools/lib/wav.ts` wrote it: 16-bit PCM, non-finite samples as 0, clamped
+//! WAV output (mono unless asked), as `tools/lib/wav.ts` wrote it: 16-bit PCM, non-finite samples as 0, clamped
 //! to [−1, 1], `Math.round(v · 32767)`. `--float` writes 32-bit IEEE float instead (the engine's
 //! samples exactly, for comparisons).
 
@@ -6,7 +6,13 @@ use chimera::math::js_round;
 use std::path::Path;
 
 pub fn write(path: &str, x: &[f32], sample_rate: u32, float: bool) -> std::io::Result<()> {
+    write_channels(path, x, 1, sample_rate, float)
+}
+
+/// `channels` interleaved channels (2: L R L R …).
+pub fn write_channels(path: &str, x: &[f32], channels: u16, sample_rate: u32, float: bool) -> std::io::Result<()> {
     let (format, bytes_per_sample): (u16, u32) = if float { (3, 4) } else { (1, 2) };
+    let frame = bytes_per_sample * channels as u32;
     let data_bytes = x.len() as u32 * bytes_per_sample;
     let mut b = Vec::with_capacity(44 + data_bytes as usize);
     b.extend_from_slice(b"RIFF");
@@ -14,10 +20,10 @@ pub fn write(path: &str, x: &[f32], sample_rate: u32, float: bool) -> std::io::R
     b.extend_from_slice(b"WAVEfmt ");
     b.extend_from_slice(&16u32.to_le_bytes());
     b.extend_from_slice(&format.to_le_bytes());
-    b.extend_from_slice(&1u16.to_le_bytes());
+    b.extend_from_slice(&channels.to_le_bytes());
     b.extend_from_slice(&sample_rate.to_le_bytes());
-    b.extend_from_slice(&(sample_rate * bytes_per_sample).to_le_bytes());
-    b.extend_from_slice(&(bytes_per_sample as u16).to_le_bytes());
+    b.extend_from_slice(&(sample_rate * frame).to_le_bytes());
+    b.extend_from_slice(&(frame as u16).to_le_bytes());
     b.extend_from_slice(&(bytes_per_sample as u16 * 8).to_le_bytes());
     b.extend_from_slice(b"data");
     b.extend_from_slice(&data_bytes.to_le_bytes());

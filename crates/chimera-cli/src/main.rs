@@ -8,6 +8,7 @@ mod compare;
 mod diagnose;
 mod js;
 mod render;
+mod texture;
 mod wav;
 
 use chimera::anatomy::human::{BODY_CHILD, BODY_FEMALE, BODY_MALE, BodyMix, HumanBody};
@@ -53,6 +54,11 @@ pub struct Ctx {
 impl Ctx {
     pub fn write_wav(&self, path: &str, x: &[f32]) -> Result<(), String> {
         wav::write(path, x, FS as u32, self.float).map_err(|e| format!("{path}: {e}"))
+    }
+
+    /// interleaved L R samples
+    pub fn write_wav_stereo(&self, path: &str, x: &[f32]) -> Result<(), String> {
+        wav::write_channels(path, x, 2, FS as u32, self.float).map_err(|e| format!("{path}: {e}"))
     }
 }
 
@@ -110,6 +116,7 @@ fn run(args: Vec<String>) -> Result<(), String> {
                 _ => Err(format!("unknown render kind {kind:?}\n\n{USAGE}")),
             }
         }
+        ["texture", ..] => texture::run(&ctx, &args[1..]),
         ["compare", "csd", ..] => compare::csd(&ctx, &args[2..]),
         ["compare", "tsp", ..] => compare::tsp::run(&ctx, &args[2..]),
         ["diagnose", ..] => diagnose::run(&ctx, &args[1..]),
@@ -120,7 +127,7 @@ fn run(args: Vec<String>) -> Result<(), String> {
         ["calibrate", "vowels", ..] => calibrate::vowels(&args[2..]),
         ["calibrate", "consonants", ..] => calibrate::consonants(&args[2..]),
         ["help" | "--help" | "-h", ..] => {
-            println!("{USAGE}");
+            println!("{USAGE}\n\n{}", texture::USAGE);
             Ok(())
         }
         _ => Err(USAGE.to_string()),
